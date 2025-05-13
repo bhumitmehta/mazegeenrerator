@@ -34,6 +34,7 @@ BLUE = (0, 0, 255)
 YELLOW = (255, 255, 0)
 PURPLE = (128, 0, 128)
 ORANGE = (255, 165, 0)
+LIGHT_RED = (255, 150, 150) # For visited path
 # Directions for maze generation
 DIRECTIONS = [(0, 1), (1, 0), (0, -1), (-1, 0)]
 # Directions for pathfinding
@@ -87,18 +88,24 @@ def add_border(maze: List[List[int]]) -> List[List[int]]:
     return bordered_maze
 
 # Display the maze on the screen
-def display_maze(maze_data: List[List[int]], screen_surface: Surface, current_start_point: Tuple[int, int], current_end_point: Tuple[int, int]) -> None:
+def display_maze(maze_data: List[List[int]], screen_surface: Surface, current_start_point: Tuple[int, int], current_end_point: Tuple[int, int], visited_cells: set) -> None:
     """Display the maze on the screen."""
     screen_surface.fill(BLACK)  # Clear screen for fresh draw
     for y_coord in range(len(maze_data)):
         for x_coord in range(len(maze_data[0])):
             cell_value = maze_data[y_coord][x_coord]
-            color_to_draw = WHITE if cell_value == 0 else BLACK
+            current_cell = (x_coord, y_coord)
+            
+            color_to_draw = BLACK # Default for walls
 
-            if (x_coord, y_coord) == current_start_point:
+            if current_cell == current_start_point:
                 color_to_draw = RED
-            elif (x_coord, y_coord) == current_end_point:
+            elif current_cell == current_end_point:
                 color_to_draw = GREEN
+            elif current_cell in visited_cells:
+                color_to_draw = LIGHT_RED
+            elif cell_value == 0: # Path cell
+                color_to_draw = WHITE
             
             pixel_x, pixel_y = x_coord * CELL_SIZE, y_coord * CELL_SIZE
             if pixel_x < WINDOW_WIDTH and pixel_y < WINDOW_HEIGHT:
@@ -147,6 +154,10 @@ final_end_point = (final_end_point_display_x, final_end_point_display_y)
 if 0 <= final_end_point[1] < len(final_maze) and 0 <= final_end_point[0] < len(final_maze[0]):
     final_maze[final_end_point[1]][final_end_point[0]] = 0
 
+# Keep track of visited path
+visited_path = set()
+visited_path.add(final_start_point) # Add initial start point
+
 # Main game loop
 running = True
 clock = pygame.time.Clock()
@@ -190,8 +201,9 @@ while running:
             new_start_x = potential_x
             
     final_start_point = (new_start_x, new_start_y)
+    visited_path.add(final_start_point) # Add current position to visited path
 
-    display_maze(final_maze, screen, final_start_point, final_end_point)
+    display_maze(final_maze, screen, final_start_point, final_end_point, visited_path)
     clock.tick(FPS)
 
 pygame.quit()
