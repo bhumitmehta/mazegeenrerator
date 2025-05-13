@@ -23,7 +23,7 @@ os.environ["SDL_AUDIODRIVER"] = "dummy"
 FPS = 60
 WINDOW_WIDTH = 800
 WINDOW_HEIGHT = 600
-CELL_SIZE = 20
+CELL_SIZE = 10   # Use this consistently
 GRID_WIDTH = WINDOW_WIDTH // CELL_SIZE
 GRID_HEIGHT = WINDOW_HEIGHT // CELL_SIZE
 WHITE = (255, 255, 255)
@@ -41,12 +41,9 @@ DIRECTIONS_PATHFINDING = [(0, 1), (1, 0), (0, -1), (-1, 0),
                            (1, 1), (1, -1), (-1, 1), (-1, -1)]
 # Direction for DFS maze generation
 DFS_DIRECTIONS = [(0, 1), (1, 0), (0, -1), (-1, 0)]
-CELL_SIZE = 10
 # Initialize Pygame
-init()
-# Commenting out mixer.init() to avoid ALSA-related errors
-# mixer.init()
-# Load images
+pygame.init()
+
 # Load images
 def load_image(name: str) -> Surface:
     """Load an image from the images directory."""
@@ -54,10 +51,8 @@ def load_image(name: str) -> Surface:
     if not os.path.isfile(path):
         raise FileNotFoundError(f"Image '{name}' not found in 'images' directory.")
     return image.load(path).convert_alpha()
-# # Load sound
 
-
-#write a function to genrate a maze using dfs
+# Generate a maze using depth-first search
 def generate_maze_dfs(width: int, height: int) -> List[List[int]]:
     """Generate a maze using depth-first search."""
     maze = [[1 for _ in range(width)] for _ in range(height)]
@@ -81,72 +76,122 @@ def generate_maze_dfs(width: int, height: int) -> List[List[int]]:
             stack.append((x + dx * 2, y + dy * 2))
     return maze
 
-# Generate the maze once
-maze = generate_maze_dfs(WINDOW_WIDTH, WINDOW_HEIGHT)
+# Add a border to the maze
+def add_border(maze: List[List[int]]) -> List[List[int]]:
+    width = len(maze[0])
+    height = len(maze)
+    bordered_maze = [[1] * (width + 2)]  # Top border
+    for row in maze:
+        bordered_maze.append([1] + row + [1])  # Add left and right borders
+    bordered_maze.append([1] * (width + 2))  # Bottom border
+    return bordered_maze
 
-# Add start and stop points
-start_point = (0, 0)  # Top-left corner
-# Ensure the end point is within the visible grid
-end_point = (min(len(maze[0]) - 1, GRID_WIDTH - 1), min(len(maze) - 1, GRID_HEIGHT - 1))  # Bottom-right corner
-
-# Modify display_maze to include start and stop points
-def display_maze(maze: List[List[int]], screen: Surface) -> None:
+# Display the maze on the screen
+def display_maze(maze_data: List[List[int]], screen_surface: Surface, current_start_point: Tuple[int, int], current_end_point: Tuple[int, int]) -> None:
     """Display the maze on the screen."""
-    for y in range(len(maze)):
-        for x in range(len(maze[0])):
-            if (x, y) == start_point:
-                color = RED  # Start point
-            elif (x, y) == end_point:
-                color = GREEN  # End point
-            else:
-                color = WHITE if maze[y][x] == 0 else BLACK
-            pygame.draw.rect(screen, color, (x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+    screen_surface.fill(BLACK)  # Clear screen for fresh draw
+    for y_coord in range(len(maze_data)):
+        for x_coord in range(len(maze_data[0])):
+            cell_value = maze_data[y_coord][x_coord]
+            color_to_draw = WHITE if cell_value == 0 else BLACK
+
+            if (x_coord, y_coord) == current_start_point:
+                color_to_draw = RED
+            elif (x_coord, y_coord) == current_end_point:
+                color_to_draw = GREEN
+            
+            pixel_x, pixel_y = x_coord * CELL_SIZE, y_coord * CELL_SIZE
+            if pixel_x < WINDOW_WIDTH and pixel_y < WINDOW_HEIGHT:
+                 pygame.draw.rect(screen_surface, color_to_draw, (pixel_x, pixel_y, CELL_SIZE, CELL_SIZE))
     pygame.display.flip()
 
 # Initialize the game window
-screen = display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-display.set_caption("Maze Generator")
+screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+pygame.display.set_caption("Maze Generator")
 
-# Generate the maze once
-maze = generate_maze_dfs(WINDOW_WIDTH, WINDOW_HEIGHT)
+# Generate the base maze
+base_maze = generate_maze_dfs(GRID_WIDTH, GRID_HEIGHT)
 
-# Add start and stop points
-start_point = (0, 0)  # Top-left corner
-# Ensure the end point is within the visible grid
-end_point = (min(len(maze[0]) - 1, GRID_WIDTH - 1), min(len(maze) - 1, GRID_HEIGHT - 1))  # Bottom-right corner
+# Define initial start and end points for the base maze
+initial_start_point = (0, 0)
+initial_end_point = (GRID_WIDTH - 1, GRID_HEIGHT - 1)
 
-# Modify display_maze to include start and stop points
-def display_maze(maze: List[List[int]], screen: Surface) -> None:
-    """Display the maze on the screen."""
-    for y in range(len(maze)):
-        for x in range(len(maze[0])):
-            if (x, y) == start_point:
-                color = RED  # Start point
-            elif (x, y) == end_point:
-                color = GREEN  # End point
-            else:
-                color = WHITE if maze[y][x] == 0 else BLACK
-            pygame.draw.rect(screen, color, (x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
-    pygame.display.flip()
+# Ensure start and end points are paths in the base_maze
+if 0 <= initial_start_point[1] < len(base_maze) and 0 <= initial_start_point[0] < len(base_maze[0]):
+    base_maze[initial_start_point[1]][initial_start_point[0]] = 0
+if 0 <= initial_end_point[1] < len(base_maze) and 0 <= initial_end_point[0] < len(base_maze[0]):
+    base_maze[initial_end_point[1]][initial_end_point[0]] = 0
 
-# Initialize the game window
-screen = display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-display.set_caption("Maze Generator")
+# Add border to the maze
+final_maze = add_border(base_maze)
 
-# Generate the maze once
-maze = generate_maze_dfs(WINDOW_WIDTH, WINDOW_HEIGHT)
+# Adjust start and end points for the border
+final_start_point = (initial_start_point[0] + 1, initial_start_point[1] + 1)
+final_end_point = (initial_end_point[0] + 1, initial_end_point[1] + 1)
+
+# Ensure start/end points are paths in the final_maze as well
+if 0 <= final_start_point[1] < len(final_maze) and 0 <= final_start_point[0] < len(final_maze[0]):
+    final_maze[final_start_point[1]][final_start_point[0]] = 0
+if 0 <= final_end_point[1] < len(final_maze) and 0 <= final_end_point[0] < len(final_maze[0]):
+    final_maze[final_end_point[1]][final_end_point[0]] = 0
+
+# Redefine final_end_point for display to be the bottom-right visible cell
+# The visible grid is GRID_WIDTH x GRID_HEIGHT cells.
+# So, the bottom-right visible cell has indices (GRID_WIDTH - 1, GRID_HEIGHT - 1).
+# These are also the indices in final_maze for that cell, as display_maze shows final_maze[0:GRID_HEIGHT][0:GRID_WIDTH].
+final_end_point_display_x = max(0, GRID_WIDTH - 1)
+final_end_point_display_y = max(0, GRID_HEIGHT - 1)
+final_end_point = (final_end_point_display_x, final_end_point_display_y)
+
+# Ensure this specific display point is also a path in final_maze
+if 0 <= final_end_point[1] < len(final_maze) and 0 <= final_end_point[0] < len(final_maze[0]):
+    final_maze[final_end_point[1]][final_end_point[0]] = 0
 
 # Main game loop
 running = True
+clock = pygame.time.Clock()
+
 while running:
-    for e in event.get():
-        if e.type == QUIT or (e.type == KEYDOWN and e.key == K_ESCAPE):
+    for event_item in pygame.event.get():
+        if event_item.type == QUIT:
             running = False
+        if event_item.type == KEYDOWN:
+            if event_item.key == K_ESCAPE:
+                running = False
+            
+    # Get the state of all keyboard keys for continuous movement
+    keys = pygame.key.get_pressed()
+    
+    new_start_x, new_start_y = final_start_point
 
-    # Display the maze
-    display_maze(maze, screen)
+    if keys[pygame.K_UP]:
+        potential_y = new_start_y - 1
+        if 0 <= potential_y < len(final_maze) and \
+           0 <= new_start_x < len(final_maze[0]) and \
+           final_maze[potential_y][new_start_x] == 0:
+            new_start_y = potential_y
+    elif keys[pygame.K_DOWN]:
+        potential_y = new_start_y + 1
+        if 0 <= potential_y < len(final_maze) and \
+           0 <= new_start_x < len(final_maze[0]) and \
+           final_maze[potential_y][new_start_x] == 0:
+            new_start_y = potential_y
+    elif keys[pygame.K_LEFT]:
+        potential_x = new_start_x - 1
+        if 0 <= new_start_y < len(final_maze) and \
+           0 <= potential_x < len(final_maze[0]) and \
+           final_maze[new_start_y][potential_x] == 0:
+            new_start_x = potential_x
+    elif keys[pygame.K_RIGHT]:
+        potential_x = new_start_x + 1
+        if 0 <= new_start_y < len(final_maze) and \
+           0 <= potential_x < len(final_maze[0]) and \
+           final_maze[new_start_y][potential_x] == 0:
+            new_start_x = potential_x
+            
+    final_start_point = (new_start_x, new_start_y)
 
-    # Cap the frame rate
-    pg_time.Clock().tick(FPS)
+    display_maze(final_maze, screen, final_start_point, final_end_point)
+    clock.tick(FPS)
 
 pygame.quit()
